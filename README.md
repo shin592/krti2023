@@ -6,6 +6,13 @@ This is a catkin package built by VTOL team for KRTI 2022. Wish us luck.
 
 To clone the repository, make sure you already have created your own catkin workspace. If you already done that, clone this repository to your `src` folder inside the catkin workspace. Don't forget to run `catkin build` or `catkin_make` to build the package.
 
+### Launching the world
+
+To start using this package, there are some launch file provided out of the box.
+1. `roslaunch krti2022 full.launch` to launch both Gazebo and MAVROS
+2. `roslaunch krti2022 gazebo_only.launch` to launch Gazebo only
+3. `roslaunch krti2022 mavros_only.launch` to launch MAVROS only
+
 ### Disabling GPS and enabling optical flow (for indoors flight)
 
 To disable GPS and enable optical flow, you must enter a few parameters to ArduPilot.
