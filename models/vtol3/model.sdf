@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sdf version="1.5">
-  <model name="VTOL1">
+  <model name="VTOL3">
     <pose>0 0 0  0 0 0</pose>
     <static>true</static>
     <link name="link">
@@ -18,17 +18,17 @@
 
       <collision name="collision">
         <geometry>
-          <mesh>
-            <uri>model://vtol1/meshes/VTOL1.dae</uri>
-          </mesh>
+          <box>
+              <size>0.21 0.21 0.01</size>
+          </box>
         </geometry>
       </collision>
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>model://vtol1/meshes/VTOL1.dae</uri>
+            <uri>model://vtol3/meshes/VTOL3.dae</uri>
           </mesh>
-	      </geometry>
+	</geometry>
       </visual>
     </link>
   </model>

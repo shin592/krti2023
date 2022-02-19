@@ -22,7 +22,7 @@
     <scene>
       <sky>
         <clouds>
-          <speed>12</speed>
+          <speed>10</speed>
         </clouds>
       </sky>
       <ambient>0.4 0.4 0.4 1</ambient>
@@ -49,73 +49,97 @@
             </friction>
           </surface>
         </collision>
-
-      </link>
-    </model>
-    
-    <model name='Arena_KRTI_2021'>
-      <pose frame=''>5.50983 0.979914 0.06 0 -0 3.14159</pose>
-      <static>0</static>
-      <link name='link'>
-        <collision name='collision'>
-          <geometry>
-            <mesh>
-              <uri>model://arena/meshes/ArenaKRTI.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
         <visual name='visual'>
+          <pose>4.5 0 -0.005 0 -0 0</pose>
           <geometry>
-            <mesh>
-              <uri>model://arena/meshes/ArenaKRTI.dae</uri>
-            </mesh>
+            <box>
+              <size>10 10 0.01</size>
+            </box>
           </geometry>
+          <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Black</name>
+          </script>
+        </material>
         </visual>
-        <self_collide>1</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
       </link>
+
     </model>
-    
-    <state world_name='default'>
-      <sim_time>12394 4000000</sim_time>
-      <real_time>149 904819733</real_time>
-      <wall_time>1629565759 83007794</wall_time>
-      <iterations>36898</iterations>
-      <model name='Arena_KRTI_2021'>
-        <pose frame=''>0 0.979914 0.06 0 -0 0</pose>
-        <scale>1 1 1</scale>
-        <link name='link'>
-          <pose frame=''>0 0.979914 0.06 0 -0 0</pose>
-          <velocity>0 0 0 0 -0 0</velocity>
-          <acceleration>0 0 0 0 -0 0</acceleration>
-          <wrench>0 0 0 0 -0 0</wrench>
-        </link>
-      </model>
-    
 
     <include>
+      <name>sun</name>
       <uri>model://sun</uri>
     </include>
+    <include>
+      <name>sun2</name>
+      <uri>model://sun</uri>
+    </include>
+    
+    <model name="wall">
+      <include>
+        <uri>model://wall</uri>
+      </include>
+      <pose>9.6 0 2 0 -0 0</pose>
+      <static>1</static>
+    </model>
+
+    <model name="gedung 2m">
+      <include>
+        <uri>model://gedung2m</uri>
+      </include>
+      <pose>8 4 1 0 -0 3.14159</pose>
+      <static>1</static>
+    </model>
+
+    <model name="gedung 1m">
+      <include>
+        <uri>model://gedung1m</uri>
+      </include>
+      <pose>9 0 0.5 0 -0 0</pose>
+      <static>1</static>
+    </model>
+
+    <model name="gedung 1,5m">
+      <include>
+        <uri>model://gedung1,5m</uri>
+      </include>
+      <pose>8 -4 0.75 0 -0 3.14159</pose>
+      <static>1</static>
+    </model>
+
+    <model name="obstacle">
+      <include>
+        <uri>model://obstacle</uri>
+      </include>
+      <pose>3.5 -3 1 0 -0 0</pose>
+      <static>1</static>
+    </model>
+
+    <model name="home">
+      <include>
+        <uri>model://home</uri>
+      </include>
+      <pose>0 0 0.0025 0 -0 0</pose>
+      <static>1</static>
+    </model>
+
+    <model name="elp">
+      <include>
+        <uri>model://elp</uri>
+      </include>
+      <pose>4.5 2 0.25 0 -0 0</pose>
+    </model>
+    
+
 
     <model name="iris">
       <include>
-        <uri>model://drone_with_camera</uri>
+        <uri>model://drone</uri>
       </include>
       <pose> 0 0 0 0 0 0</pose>
     </model>
+
   </world>
 </sdf>
