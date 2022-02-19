@@ -3,9 +3,11 @@
     <arg name="pola" default="1"/>
     <arg name="target" default="1"/>
 
-    <!-- <include file="$(find krti2022)/launch/spawn_target.launch">
+    <include file="$(find krti2022)/launch/spawn_target.launch">
+        <arg name="x" value="8.75" if="$(eval target==3 or target==4)"/>
+        <arg name="y" value="-0.25" if="$(eval target==2 or target ==4)"/>
         <arg name="target" value="$(arg target)"/>
-    </include> -->
+    </include>
 
     <group if="$(eval pola == 1)">    
         <include file="$(find krti2022)/launch/spawn_qr_gedungA.launch">
