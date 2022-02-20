@@ -23,6 +23,12 @@ To start using this package, there are some launch file provided out of the box.
 2. `roslaunch krti2022 gazebo_only.launch` to launch Gazebo only
 3. `roslaunch krti2022 mavros_only.launch` to launch MAVROS only
 
+Command number one and two provide two additional arguments:
+- pola -> how the QR code placed based on the draw
+- target -> where the object should be thrown in building B
+
+To understand more, please review the [KRTI 2021 manual file](https://pusatprestasinasional.kemdikbud.go.id/labs/uploads/lampiran/PEDOMAN-KRTI-Updated-Rev.-9-Mei-2021.pdf) page 29 for `pola` and 32 for `target`.
+
 ### Disabling GPS and enabling optical flow (for indoors flight)
 
 To disable GPS and enable optical flow, you must enter a few parameters to ArduPilot.
