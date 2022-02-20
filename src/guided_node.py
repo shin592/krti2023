@@ -66,12 +66,13 @@ def main():
     while not rospy.is_shutdown():
         now = rospy.get_rostime()
         if(not takeoff):
-            if current_state.mode != "GUIDED_NOGPS" and (now - last_request > rospy.Duration(5.)):
-                set_mode_client(base_mode=0, custom_mode="GUIDED_NOGPS")
+            if current_state.mode != "GUIDED" and (now - last_request > rospy.Duration(5.)):
+                set_mode_client(base_mode=0, custom_mode="GUIDED")
                 last_request = now 
             else:
                 if not current_state.armed and (now - last_request > rospy.Duration(5.)):
                     arming_client(True)
+                    rospy.loginfo("arming vehicle")
                     last_request = now 
 
             # older versions of PX4 always return success==True, so better to check Status instead
@@ -81,15 +82,16 @@ def main():
                 rospy.loginfo("Current mode: %s" % current_state.mode)
             prev_state = current_state
                 
-            if current_state.armed and current_state.mode == "GUIDED_NOGPS":
+            if current_state.armed and current_state.mode == "GUIDED":
                 rospy.loginfo("taking off")
                 takeoff_alt = 3
                 cmd_vel.linear.z = 5
+                cmd_vel.linear.x = 0
+                cmd_vel.linear.y = 0
                 cmd_vel_pub.publish(cmd_vel)
-
                 rospy.loginfo("target_alt = %f current alt = %f" % (takeoff_alt, current_pose.pose.position.z))
-                if(current_pose.pose.position.z > takeoff_alt*0.95):
-                    cmd_vel.linear.z = 0
+
+                if(current_pose.pose.position.z > takeoff_alt*0.85):
                     cmd_vel_pub.publish(cmd_vel)
                     takeoff = True
                     takeoff_complete_time = rospy.get_rostime()

@@ -15,6 +15,11 @@ void state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
     current_state = *msg;
 }
+geometry_msgs::PoseStamped current_pose;
+void pose_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
+{
+    current_pose = *msg;
+}
 
 int main(int argc, char **argv)
 {
@@ -25,9 +30,9 @@ int main(int argc, char **argv)
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 10);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
-
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/set_point/local", 10, pose_cb);
     // the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(20.0);
+    ros::Rate rate(10.0);
 
     // wait for FCU connection
     while (ros::ok() && !current_state.connected)
@@ -47,10 +52,11 @@ int main(int argc, char **argv)
         local_pos_pub.publish(pose);
         ros::spinOnce();
         rate.sleep();
+        ROS_INFO("%d/100", i);
     }
 
     mavros_msgs::SetMode offb_set_mode;
-    offb_set_mode.request.custom_mode = "OFFBOARD";
+    offb_set_mode.request.custom_mode = "GUIDED";
 
     mavros_msgs::CommandBool arm_cmd;
     arm_cmd.request.value = true;
@@ -59,13 +65,13 @@ int main(int argc, char **argv)
 
     while (ros::ok())
     {
-        if (current_state.mode != "OFFBOARD" &&
+        if (current_state.mode != "GUIDED" &&
             (ros::Time::now() - last_request > ros::Duration(5.0)))
         {
             if (set_mode_client.call(offb_set_mode) &&
                 offb_set_mode.response.mode_sent)
             {
-                ROS_INFO("Offboard enabled");
+                ROS_INFO("GUIDED enabled");
             }
             last_request = ros::Time::now();
         }
@@ -82,12 +88,26 @@ int main(int argc, char **argv)
                 last_request = ros::Time::now();
             }
         }
-
+        pose.pose.position.x = 1;
+        pose.pose.position.y = 0;
+        pose.pose.position.z = 5;
         local_pos_pub.publish(pose);
+        if(pose == current_pose){
+            ROS_INFO("Pose reached");
+            offb_set_mode.request.custom_mode = "LAND";
+            set_mode_client.call(offb_set_mode);
+            if (set_mode_client.call(offb_set_mode) &&
+                offb_set_mode.response.mode_sent)
+            {
+                ROS_INFO("LAND enabled");
+                ros::shutdown();
+            }
+        }
 
         ros::spinOnce();
         rate.sleep();
     }
+
 
     return 0;
 }

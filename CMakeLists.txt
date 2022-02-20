@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   sensor_msgs
   image_transport
+  message_generation
 )
 
 find_package(OpenCV REQUIRED)
@@ -61,11 +62,10 @@ find_package(OpenCV REQUIRED)
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  qrfound.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -75,10 +75,11 @@ find_package(OpenCV REQUIRED)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  # geometry_msgs
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -168,7 +169,7 @@ target_link_libraries(${PROJECT_NAME}_node
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/guided_node.py
-  src/vision.py
+  src/front_vision.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
