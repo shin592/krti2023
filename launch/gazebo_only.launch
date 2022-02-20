@@ -7,8 +7,10 @@
     <arg name="gui" value="$(arg gui)"/>
     <!-- more default parameters can be changed here -->
   </include>
+  <arg name="pola" default="1"/>
+  <arg name="target" default="1"/>
   <include file="$(find krti2022)/launch/spawn_qr_target.launch">
-        <arg name="pola" default="1"/>
-        <arg name="target" value="1"/>
-    </include>
+      <arg name="target" value="$(arg target)"/>
+      <arg name="pola" value="$(arg pola)"/>
+  </include>
 </launch>
