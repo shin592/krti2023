@@ -16,7 +16,6 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   cv_bridge
   sensor_msgs
-  image_transport
   message_generation
 )
 
@@ -28,7 +27,7 @@ find_package(OpenCV REQUIRED)
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
+catkin_python_setup()
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -55,16 +54,17 @@ find_package(OpenCV REQUIRED)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  QRResult.msg
+  DResult.msg
+)
 
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  qrfound.srv
+  # QRFound.srv
+  activate.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -112,7 +112,7 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES guided_node
+#  LIBRARIES krti2022
 #  CATKIN_DEPENDS geometry_msgs mavros roscpp rospy std_msgs
 #  DEPENDS system_lib
 )
@@ -124,7 +124,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -169,7 +169,10 @@ target_link_libraries(${PROJECT_NAME}_node
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/guided_node.py
-  src/front_vision.py
+  src/vision.py
+  src/sensors.py
+  src/krti2022/drone_api.py
+  src/tes_main.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

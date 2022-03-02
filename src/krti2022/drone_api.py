@@ -47,7 +47,10 @@ class DroneAPI:
         self.waypoints = waypoints
 
         # Set origin
-        self.set_origin(global_position)
+        now = rospy.Time.now()
+        while rospy.Time.now() - now < rospy.Duration(5):
+            self.set_origin(global_position)
+            rospy.loginfo("set")
 
         # Set parameters
         for name, value in parameters.items():
@@ -110,7 +113,7 @@ class DroneAPI:
         """
 
         # Get client
-        client = rospy.ServiceProxy(name="/mavros/param/set", service_class=ParamSet)
+        client = rospy.ServiceProxy("/mavros/param/set", ParamSet)
 
         # Set parameter
         request = ParamSetRequest()
@@ -130,7 +133,7 @@ class DroneAPI:
 
         # Get client
         rospy.wait_for_service("/mavros/set_mode")
-        client = rospy.ServiceProxy(name="/mavros/set_mode", service_class=SetMode)
+        client = rospy.ServiceProxy("/mavros/set_mode", SetMode)
 
         # Set mode
         client(SetModeRequest(0, mode))
@@ -159,7 +162,7 @@ class DroneAPI:
 
         # Get client
         client = rospy.Publisher(
-            name="/mavros/setpoint_attitude/thrust", service_class=Thrust, queue_size=10
+            "/mavros/setpoint_attitude/thrust", Thrust, queue_size=10
         )
 
         # Create thrust message
@@ -185,9 +188,7 @@ class DroneAPI:
 
         # Get client
         rospy.wait_for_service("/mavros/cmd/arming")
-        arming_client = rospy.ServiceProxy(
-            name="/mavros/cmd/arming", service_class=CommandBool
-        )
+        arming_client = rospy.ServiceProxy("/mavros/cmd/arming", CommandBool)
 
         # Arm
         while not rospy.is_shutdown() and not self.current_state.armed:
@@ -211,9 +212,7 @@ class DroneAPI:
 
         # Get client
         rospy.wait_for_service("/mavros/cmd/takeoff")
-        takeoff_client = rospy.ServiceProxy(
-            name="/mavros/cmd/takeoff", service_class=CommandTOL
-        )
+        takeoff_client = rospy.ServiceProxy("/mavros/cmd/takeoff", CommandTOL)
 
         # Takeoff
         takeoff_client(CommandTOLRequest(0, 0, 0, 0, altitude))
@@ -228,7 +227,7 @@ class DroneAPI:
 
         # Get client
         rospy.wait_for_service("/mavros/cmd/land")
-        client = rospy.ServiceProxy(name="/mavros/cmd/land", service_class=CommandTOL)
+        client = rospy.ServiceProxy("/mavros/cmd/land", CommandTOL)
 
         # Landing
         client(CommandTOLRequest(0, 0, 0, 0, 0))
@@ -255,8 +254,8 @@ class DroneAPI:
 
         # Get client
         client = rospy.Publisher(
-            name="/mavros/setpoint_position/local",
-            service_class=PoseStamped,
+            "/mavros/setpoint_position/local",
+            PoseStamped,
             queue_size=10,
         )
 
@@ -298,10 +297,10 @@ class DroneAPI:
                 -1 (int): Failed to connect to FCU.
         """
         rospy.loginfo("Waiting for FCU connection")
-        while not rospy.is_shutdown() and not self.current_state_g.connected:
+        while not rospy.is_shutdown() and not self.current_state.connected:
             rospy.sleep(0.01)
         else:
-            if self.current_state_g.connected:
+            if self.current_state.connected:
                 rospy.loginfo("FCU connected")
                 return 0
             else:
@@ -316,11 +315,22 @@ class DroneAPI:
                 -1 (int): Failed to start mission.
         """
         rospy.loginfo("Waiting for user to set mode to GUIDED")
-        while not rospy.is_shutdown() and self.current_state_g.mode != "GUIDED":
+        global_position: dict = {
+            "latitude": -7.265572783693384,
+            "longitude": 112.78452265474213,
+            "altitude": 0.0,
+        }
+        while not rospy.is_shutdown() and self.current_state.mode != "GUIDED":
             rospy.sleep(0.01)
         else:
-            if self.current_state_g.mode == "GUIDED":
+            if self.current_state.mode == "GUIDED":
                 rospy.loginfo("Mode set to GUIDED. Starting Mission...")
+                # Set origin
+                # now = rospy.Time.now()
+                # while True:
+                #     self.set_origin(global_position)
+                #     if rospy.Time.now() - now > rospy.Duration(3):
+                #         break
                 return 0
             else:
                 rospy.logerr("Error startting mission")
