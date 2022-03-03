@@ -1,26 +1,16 @@
-from time import sleep
 from krti2022.drone_api import DroneAPI
 from krti2022.msg import QRResult, DResult
 from krti2022.srv import activate, activateResponse
-import mavros
 import rospy
-from math import radians, cos, sin
-from geometry_msgs.msg import PoseStamped, Point, Quaternion
-from geographic_msgs.msg import GeoPointStamped
-
-mavros.set_namespace()
+from time import sleep
 
 
 class Game:
     def __init__(self):
-        self.vision_activate_client = rospy.ServiceProxy(
-            mavros.get_topic("/vision/activate"), activate
-        )
-        self.QR_sub = rospy.Subscriber(
-            mavros.get_topic("vision/qr/result"), QRResult, self.qr_callback
-        )
+        self.vision_activate_client = rospy.ServiceProxy("/vision/activate", activate)
+        self.QR_sub = rospy.Subscriber("vision/qr/result", QRResult, self.qr_callback)
         self.elp_sub = rospy.Subscriber(
-            mavros.get_topic("/vision/elp/result"), DResult, self.elp_callback
+            "/vision/elp/result", DResult, self.elp_callback
         )
 
     def qr_callback(self, data):
@@ -33,22 +23,33 @@ class Game:
         rospy.init_node("tes_main")
         # Create API object
         waypoints = [
-            {"x": 7, "y": 4, "z": 2},
-            {"x": 3, "y": -2, "z": 0},
-            {"x": 0, "y": 0, "z": 0},
+            {"x": 3, "y": 2, "z": 2},
+            {"x": 3, "y": 4, "z": 2},
+            {"x": 0, "y": 0, "z": 2},
         ]
-        api = DroneAPI()
+
+        wpt_objective = ["read qr", "landing elp", "read qr"]
+
+        api = DroneAPI(waypoints=waypoints)
         api.wait4start()
-        # api.takeoff(2)
-        # api.move()
-        # api.next()
-        # # self.vision_activate_client.call(activate(True, False, False))
+        api.takeoff(2)
 
-        # sleep(0.2)
-        # api.move()
-        # api.next()
+        while True:
+            if api.check_waypoint_reached():
+                # blabla
+                if wpt_objective[api.current_waypoint] == "read qr":
+                    # read qr
+                    print("read qr")
+                elif wpt_objective[api.current_waypoint] == "landing elp":
+                    # landing elp
+                    print("landing elp")
 
-        # api.land()
+                try:
+                    api.next()
+                except:
+                    break
+            else:
+                api.move()
 
     def main2(self):
         pass
