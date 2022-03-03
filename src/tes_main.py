@@ -1,58 +1,152 @@
 from krti2022.drone_api import DroneAPI
 from krti2022.msg import QRResult, DResult
-from krti2022.srv import activate, activateResponse
+from krti2022.srv import Activate, ActivateRequest, ActivateResponse
 import rospy
 from time import sleep
 
 
 class Game:
     def __init__(self):
-        self.vision_activate_client = rospy.ServiceProxy("/vision/activate", activate)
+        self.activate_qr = rospy.ServiceProxy("/vision/activate/qr", Activate)
+        self.activate_elp = rospy.ServiceProxy("/vision/activate/elp", Activate)
+        self.activate_target = rospy.ServiceProxy("/vision/activate/target", Activate)
         self.QR_sub = rospy.Subscriber("vision/qr/result", QRResult, self.qr_callback)
         self.elp_sub = rospy.Subscriber(
             "/vision/elp/result", DResult, self.elp_callback
         )
+        self.elp_data = DResult()
+        self.elp_data.is_found = False
 
     def qr_callback(self, data):
-        pass
+        print(type(data.data))
+        print("data : {} dx : {} dy : {} ".format(data.data, data.dx, data.dy))
 
     def elp_callback(self, data):
-        pass
+        print("dx : {} dy : {} ".format(data.dx, data.dy))
+        self.elp_data = data
+
+    def land_algorithm(self, cur_pose):
+        now = rospy.Time.now()
+
+        while self.elp_data.is_found:
+            if self.elp_data.dx > 0:
+                print("move right")
+                cur_pose["y"] += 0.1
+            elif self.elp_data.dx < 0:
+                print("move left")
+                cur_pose["y"] -= 0.1
+
+            if self.elp_data.dy > 0:
+                print("move backward")
+                cur_pose["x"] -= 0.1
+            elif self.elp_data.dy < 0:
+                print("move forward")
+                cur_pose["x"] += 0.1
+
+            if self.drone.current_pose.pose.pose.position.z < 0.5:
+                rospy.loginfo("landing on elp complete activating land mode")
+                self.drone.set_mode("LAND")
+                return 0
+            if rospy.Time.now() - now > rospy.Duration(0.2):
+                cur_pose["z"] -= 0.2
+                now = rospy.Time.now()
+            print(cur_pose)
+            self.drone.move(cur_pose)
+            sleep(0.5)
+            print("landing elp")
+        return 1
 
     def main(self):
         rospy.init_node("tes_main")
+        rospy.Rate(10)
         # Create API object
         waypoints = [
-            {"x": 3, "y": 2, "z": 2},
-            {"x": 3, "y": 4, "z": 2},
-            {"x": 0, "y": 0, "z": 2},
+            {"x": -4.8, "y": 5, "z": 2},
+            {"x": -2, "y": 4, "z": 2},
         ]
 
-        wpt_objective = ["read qr", "landing elp", "read qr"]
+        wpt_objective = ["read qr", "landing elp"]
 
-        api = DroneAPI(waypoints=waypoints)
-        api.wait4start()
-        api.takeoff(2)
-
-        while True:
-            if api.check_waypoint_reached():
-                # blabla
-                if wpt_objective[api.current_waypoint] == "read qr":
-                    # read qr
-                    print("read qr")
-                elif wpt_objective[api.current_waypoint] == "landing elp":
-                    # landing elp
-                    print("landing elp")
-
+        self.drone = DroneAPI(waypoints=waypoints)
+        self.drone.wait4start()
+        self.drone.takeoff(2)
+        self.drone.next()
+        land = False
+        try:
+            while True:
                 try:
-                    api.next()
-                except:
+                    if self.drone.check_waypoint_reached() and not land:
+                        # blabla
+                        if wpt_objective[self.drone.current_waypoint] == "read qr":
+                            # read qr
+                            print("read qr")
+                            self.activate_qr(ActivateRequest(True))
+                            sleep(2)
+                        elif (
+                            wpt_objective[self.drone.current_waypoint] == "landing elp"
+                        ):
+                            cur_pose = {
+                                "x": self.drone.current_pose.pose.pose.position.x,
+                                "y": self.drone.current_pose.pose.pose.position.y,
+                                "z": self.drone.current_pose.pose.pose.position.z,
+                            }
+                            # landing elp
+                            self.activate_elp(ActivateRequest(True))
+                            self.land_algorithm(cur_pose)
+                            land = True
+                        try:
+                            self.drone.next()
+                        except IndexError:
+                            break
+                    elif land:
+                        self.land_algorithm(cur_pose)
+                    else:
+                        self.drone.move()
+                except KeyboardInterrupt:
+                    self.drone.set_mode("LAND")
+                    exit()
+                except IndexError:
                     break
-            else:
-                api.move()
+        except KeyboardInterrupt:
+            self.drone.set_mode("LAND")
+            exit()
 
     def main2(self):
-        pass
+        rospy.init_node("tes_main")
+        rospy.Rate(10)
+        # Create API object
+        waypoints = [
+            {"x": -4.8, "y": 5, "z": 2},
+            {"x": -2, "y": 4, "z": 2},
+        ]
+
+        wpt_objective = ["read qr", "landing elp"]
+
+        self.drone = DroneAPI(waypoints=waypoints)
+        self.drone.wait4start()
+        self.drone.takeoff(2)
+        self.drone.next()
+        try:
+            self.drone.move()
+
+            while not self.drone.check_waypoint_reached():
+                self.drone.move()
+                rospy.sleep(0.1)
+            cur_pose = {
+                "x": self.drone.current_pose.pose.pose.position.x,
+                "y": self.drone.current_pose.pose.pose.position.y,
+                "z": self.drone.current_pose.pose.pose.position.z,
+            }
+            # landing elp
+            self.activate_elp(ActivateRequest(True))
+            while self.land_algorithm(cur_pose):
+                pass
+
+        except KeyboardInterrupt:
+            self.drone.set_mode("LAND")
+            exit()
+        except IndexError:
+            pass
 
     def main3(self):
         pass
@@ -60,4 +154,10 @@ class Game:
 
 if __name__ == "__main__":
     game = Game()
-    game.main()
+    try:
+        game.main2()
+    except KeyboardInterrupt:
+        game.drone.set_mode("LAND")
+        exit()
+    except rospy.ROSInterruptException:
+        pass
