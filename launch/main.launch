@@ -1,0 +1,5 @@
+<launch>
+    <include file="$(find krti2022)/launch/vision.launch"/>
+    <node name="tes_main" pkg="krti2022" type="tes_main.py" args="" output="screen"/>
+    
+</launch>
