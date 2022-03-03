@@ -1,6 +1,0 @@
-# feature = detectQR, detectELP, detectTarget
-bool qr = False
-bool elp = False
-bool target = False
----
-bool result

@@ -64,7 +64,7 @@ add_message_files(
 add_service_files(
   FILES
   # QRFound.srv
-  activate.srv
+  Activate.srv
 )
 
 ## Generate actions in the 'action' folder
