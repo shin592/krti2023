@@ -315,25 +315,15 @@ class DroneAPI:
                 -1 (int): Failed to start mission.
         """
         rospy.loginfo("Waiting for user to set mode to GUIDED")
-        global_position: dict = {
-            "latitude": -7.265572783693384,
-            "longitude": 112.78452265474213,
-            "altitude": 0.0,
-        }
+
         while not rospy.is_shutdown() and self.current_state.mode != "GUIDED":
             rospy.sleep(0.01)
         else:
             if self.current_state.mode == "GUIDED":
                 rospy.loginfo("Mode set to GUIDED. Starting Mission...")
-                # Set origin
-                # now = rospy.Time.now()
-                # while True:
-                #     self.set_origin(global_position)
-                #     if rospy.Time.now() - now > rospy.Duration(3):
-                #         break
                 return 0
             else:
-                rospy.logerr("Error startting mission")
+                rospy.logerr("Error starting mission")
                 return -1
 
     def calculate_heading(self, heading) -> Quaternion:
