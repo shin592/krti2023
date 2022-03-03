@@ -3,7 +3,7 @@
 	<!-- Experimental launch script for APM based Drone -->
 
 	<!-- Start mavros -->
-	<include file="$(find krti2022)/launch/mavros_node.launch"/>
+	<include file="$(find krti2022)/launch/mavros_only.launch"/>
 	
 	<!-- Start gazebo -->
 	<arg name="pola" default="1"/>
