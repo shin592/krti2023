@@ -1,4 +1,5 @@
 from math import radians, cos, sin
+from turtle import st
 import rospy
 from geometry_msgs.msg import PoseStamped, Point, Quaternion
 from geographic_msgs.msg import GeoPointStamped
@@ -47,10 +48,26 @@ class DroneAPI:
         self.waypoints = waypoints
 
         # Set origin
+        # we need to sleep for a while otherwise
+        # '0' will be stored in 'now'
+        # so the loop will stop immediately
+        rospy.sleep(0.2)
         now = rospy.Time.now()
-        while rospy.Time.now() - now < rospy.Duration(5):
+        while rospy.Time.now() - now < rospy.Duration(1.0):
             self.set_origin(global_position)
-            rospy.loginfo("set")
+            # t = rospy.Time.now()
+            # dt = rospy.Time.now() - now
+            # print(
+            #     "now : {} t : {} dt : {} ".format(now.to_sec(), t.to_sec(), dt.to_sec())
+            # )
+            # print(t.to_sec())
+            # print(rospy.Duration(1.0).to_sec())
+            # state = True if dt > rospy.Duration(1) else False
+            # print(state)
+            # rospy.sleep(0.2)
+            # # if state:
+            # #     break
+            # rospy.loginfo("set")
 
         # Set parameters
         for name, value in parameters.items():
@@ -315,7 +332,6 @@ class DroneAPI:
                 -1 (int): Failed to start mission.
         """
         rospy.loginfo("Waiting for user to set mode to GUIDED")
-
         while not rospy.is_shutdown() and self.current_state.mode != "GUIDED":
             rospy.sleep(0.01)
         else:
