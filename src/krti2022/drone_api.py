@@ -1,7 +1,7 @@
-from math import radians, cos, sin
-from turtle import st
+from math import atan2, pow, sqrt, degrees, radians, sin, cos
 import rospy
 from geometry_msgs.msg import PoseStamped, Point, Quaternion
+from nav_msgs.msg import Odometry
 from geographic_msgs.msg import GeoPointStamped
 from mavros_msgs.msg import State, Thrust
 from mavros_msgs.srv import SetMode, SetModeRequest
@@ -55,19 +55,6 @@ class DroneAPI:
         now = rospy.Time.now()
         while rospy.Time.now() - now < rospy.Duration(1.0):
             self.set_origin(global_position)
-            # t = rospy.Time.now()
-            # dt = rospy.Time.now() - now
-            # print(
-            #     "now : {} t : {} dt : {} ".format(now.to_sec(), t.to_sec(), dt.to_sec())
-            # )
-            # print(t.to_sec())
-            # print(rospy.Duration(1.0).to_sec())
-            # state = True if dt > rospy.Duration(1) else False
-            # print(state)
-            # rospy.sleep(0.2)
-            # # if state:
-            # #     break
-            # rospy.loginfo("set")
 
         # Set parameters
         for name, value in parameters.items():
@@ -76,6 +63,17 @@ class DroneAPI:
         # Set state
         self.current_state = State()
         state_sub = rospy.Subscriber("/mavros/state", State, self.state_cb)
+
+        # Set current pose
+        self.current_pose = Odometry()
+        self.current_heading = 0.0
+        self.local_desired_heading = 0.0
+        self.home_heading = -1.0
+        pose_sub = rospy.Subscriber(
+            "/mavros/local_position/odom",
+            Odometry,
+            self.pose_cb,
+        )
 
         # Wait for connection
         self.wait4connect()
@@ -90,6 +88,33 @@ class DroneAPI:
         """
 
         self.current_state = msg
+
+    def pose_cb(self, msg: Odometry):
+        """
+        Gets the raw pose of the drone and processes it for use in control.
+
+        Args:
+                msg (nav_msgs/Odometry): Raw pose of the drone.
+        """
+        # Set current pose
+        self.current_pose = msg
+
+        # Calculate heading from quarternion to degrees
+        q0, q1, q2, q3 = (
+            msg.pose.pose.orientation.w,
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+        )
+        psi = atan2((2 * (q0 * q3 + q1 * q2)), (1 - 2 * (pow(q2, 2) + pow(q3, 2))))
+
+        # Set current heading
+        self.current_heading = degrees(psi)
+
+        # Set home heading
+        if self.home_heading == -1.0:
+            self.home_heading = self.current_heading
+            print(self.home_heading)
 
     def set_origin(self, origin: dict):
         """
@@ -198,11 +223,6 @@ class DroneAPI:
             status (bool): True to arm, False to disarm
         """
 
-        # Send 100 pose
-        for _ in range(100):
-            self.move({"x": 0, "y": 0, "z": 0})
-            rospy.sleep(0.01)
-
         # Get client
         rospy.wait_for_service("/mavros/cmd/arming")
         arming_client = rospy.ServiceProxy("/mavros/cmd/arming", CommandBool)
@@ -232,10 +252,20 @@ class DroneAPI:
         takeoff_client = rospy.ServiceProxy("/mavros/cmd/takeoff", CommandTOL)
 
         # Takeoff
-        takeoff_client(CommandTOLRequest(0, 0, 0, 0, altitude))
+        response = takeoff_client(CommandTOLRequest(0, 0, 0, 0, altitude))
+        rospy.sleep(3)
 
-        # Print success message
-        rospy.loginfo("Taking off ...")
+        if response.success:
+            rospy.loginfo("Taking off ...")
+
+            # We will return if we are 95% of the way to the target altitude
+            while self.current_pose.pose.pose.position.z < altitude * 0.95:
+                rospy.sleep(0.1)
+
+            return 1
+        else:
+            rospy.logerr("Takeoff failed")
+            return 0
 
     def land(self):
         """
@@ -281,6 +311,12 @@ class DroneAPI:
         if destination == None:
             destination = self.waypoints[self.current_waypoint]
 
+        # If have heading then we set the heading
+        if "heading" in destination:
+            heading = destination["heading"]
+        else:
+            heading = self.home_heading
+
         # Set position
         request = PoseStamped()
         request.header.stamp = rospy.Time.now()
@@ -288,23 +324,55 @@ class DroneAPI:
             x=destination["x"], y=destination["y"], z=destination["z"]
         )
 
-        # If have heading then we set the heading
-        if "heading" in destination:
-            request.pose.orientation = self.calculate_heading(destination["heading"])
+        request.pose.orientation = self.calculate_heading(heading)
+        self.local_desired_heading = heading
 
         # Send request
         client.publish(request)
 
         # Print success message
-        rospy.loginfo(
-            f"Moving to x: {destination['x']}; y: {destination['y']}; z: {destination['z']}"
-        )
+        # rospy.loginfo(
+        #     f"Moving to x: {destination['x']}; y: {destination['y']}; z: {destination['z']}"
+        # )
 
     def next(self):
         """
         A function to move to next waypoint
         """
         self.current_waypoint += 1
+
+    def check_waypoint_reached(self, pos_tol=0.3, head_tol=0.01):
+        """This function checks if the waypoint is reached within given tolerance and returns an int of 1 or 0. This function can be used to check when to request the next waypoint in the mission.
+        Args:
+                pos_tol (float, optional): Position tolerance under which the drone must be with respect to its position in space. Defaults to 0.3.
+                head_tol (float, optional): Heading or angle tolerance under which the drone must be with respect to its orientation in space. Defaults to 0.01.
+        Returns:
+                1 (int): Waypoint reached successfully.
+                0 (int): Failed to reach Waypoint.
+        """
+        destination = self.waypoints[self.current_waypoint]
+        self.move(destination)
+
+        dx = abs(destination["x"] - self.current_pose.pose.pose.position.x)
+        dy = abs(destination["y"] - self.current_pose.pose.pose.position.y)
+        dz = abs(destination["z"] - self.current_pose.pose.pose.position.z)
+
+        dMag = sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2))
+
+        cosErr = cos(radians(self.current_heading)) - cos(
+            radians(self.local_desired_heading)
+        )
+
+        sinErr = sin(radians(self.current_heading)) - sin(
+            radians(self.local_desired_heading)
+        )
+
+        dHead = sqrt(pow(cosErr, 2) + pow(sinErr, 2))
+
+        if dMag < pos_tol and dHead < head_tol:
+            return 1
+        else:
+            return 0
 
     def wait4connect(self):
         """
@@ -332,10 +400,12 @@ class DroneAPI:
                 -1 (int): Failed to start mission.
         """
         rospy.loginfo("Waiting for user to set mode to GUIDED")
+
         while not rospy.is_shutdown() and self.current_state.mode != "GUIDED":
             rospy.sleep(0.01)
         else:
-            if self.current_state.mode == "GUIDED":
+            # We will not start if mode is not GUIDED and home heading is not set
+            if self.current_state.mode == "GUIDED" and self.home_heading != -1.0:
                 rospy.loginfo("Mode set to GUIDED. Starting Mission...")
                 return 0
             else:
