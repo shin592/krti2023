@@ -10,6 +10,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
 import numpy as np
 
+# custom srv and msg
 from krti2022.srv import Activate, ActivateResponse
 from krti2022.msg import QRResult
 from krti2022.msg import DResult
@@ -57,16 +58,17 @@ class Vision:
     qr = False
     target = False
     elp = False
+
     front_img = np.array([None for _ in range(10)])
     down_img = np.array([None for _ in range(10)])
+
     lidar_range = -1
     alt = -99
 
     def __init__(self):
         # initialize node
         rospy.init_node("vision")
-        rospy.Rate(10)
-        print(rospy.get_param_names())
+
         # get parameter from launch file
         VERBOSE = rospy.get_param("/vision/verbose")
         self.sim = rospy.get_param("/vision/use_sim")
@@ -85,7 +87,6 @@ class Vision:
             "x": rospy.get_param("/vision/down_fov_x"),
             "y": rospy.get_param("/vision/down_fov_y"),
         }
-        print(type(self.elp_lower_hsv))
         if VERBOSE:
             print("use sim : {}".format(self.sim))
             print("front camera index : {}".format(Fcamera_index))
@@ -265,6 +266,7 @@ class Vision:
         """
         This function is called when the lidar_topic is published.
         """
+        # save current lidar range value
         self.lidar_range = msg.range_max
 
     def pose_cb(self, msg: Odometry):
@@ -274,7 +276,7 @@ class Vision:
         Args:
                 msg (nav_msgs/Odometry): Raw pose of the drone.
         """
-        # Set current pose
+        # save current alt
         self.alt = msg.pose.pose.position.z
 
     def read_qr(self):
@@ -286,10 +288,7 @@ class Vision:
         It will publish the QR code result to 'vision/qr/result'.
         the result is a QRResult msg.
         """
-        img = self.front_img
-        # y1, y2, x1, x2 = 200, 600, 200, 600
-        # img = img[y1:y2, x1:x2]
-
+        img = self.front_img  # maybe we could crop to scan QR faster
         decoder = cv.QRCodeDetector()
         # cv.QRCodeDetector.detectAndDecode(img[, points[, straight_qrcode]]) -> retval, points, straight_qrcode
         self.decoded_text, qr_points, _ = decoder.detectAndDecode(img)
@@ -304,11 +303,18 @@ class Vision:
             # """
             # get bounding rect around the given points from detectAndDecode()
             x, y, w, h = cv.boundingRect(qr_points)
+            # get image size
             Fwidth = img.shape[1]
             Fheight = img.shape[0]
+
+            # get the difference between the center of the qr code
+            # and the center of the image frame in pixels
             dx = int(w / 2 + x - Fwidth // 2)
             dy = int(h / 2 + y - Fheight // 2)
+
+            # get the difference in meters, currently not working as expected
             x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
+            # publish the result
             self.qr_result_pub.publish(
                 QRResult(
                     True,
@@ -324,8 +330,9 @@ class Vision:
                 print("points: x:{} y:{} w:{} h:{}".format(x, y, w, h))
                 print("dx: {} dy: {}".format(dx, dy))
             if self.show_image:
+                # draw the bounding box
                 cv.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                cv.polylines(img, np.int32(qr_points), False, (0, 255, 0), 2)
+                # show the image
                 cv.imshow("QR code", img)
                 cv.waitKey(1)
 
@@ -337,108 +344,76 @@ class Vision:
         It will publish to the /vision/target/result topic
         with msg type DResult
         """
-        MORPH_SIZE = 3
-        img = self.front_img
-        hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-        mask = cv.inRange(hsv, self.target_lower_hsv, self.elp_upper_hsv)
-        # FILTER
-        # element1 = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-        # mask2 = cv.erode(mask, element1, iterations=1)
-        # element2 = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-        # mask = cv.dilate(mask, element2, iterations=1)
-        # element3 = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-        # mask = cv.erode(mask, element3)
-        res = cv.bitwise_and(img, img, mask=mask)
-        gray = cv.cvtColor(res, cv.COLOR_BGR2GRAY)
-        element4 = cv.getStructuringElement(
-            cv.MORPH_RECT, (2 * MORPH_SIZE, 2 * MORPH_SIZE), (MORPH_SIZE, MORPH_SIZE)
-        )
-        output_morph_opening = cv.morphologyEx(
-            gray, cv.MORPH_CLOSE, element4, anchor=(-1, 1), iterations=2
-        )
-        contours, hierarchy = cv.findContours(
-            output_morph_opening, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
-        )
-        area_list = map(cv.contourArea, contours)
-        max_area = max(area_list)
-        index = area_list.index(max_area)
-        cnt = contours[index]
-        peri = cv.arcLength(cnt, True)
-        approx = cv.approxPolyDP(cnt, 0.02 * peri, True)
-        x, y, w, h = cv.boundingRect(approx)
-        Fwidth = img.shape[1]
-        Fheight = img.shape[0]
-        dx = int(w / 2 + x - Fwidth // 2)
-        dy = int(h / 2 + y - Fheight // 2)
-        x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
-        self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
-        if self.show_image:
-            cv.drawContours(img, cnt, -1, (255, 125, 60), 3)
-            cv.rectangle(res, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            # cv.imshow("gray", gray)
-            # cv.imshow("obj", res)
-
-            cv.waitKey(1)
-
-    def detect_elp(self):
-        """
-        This function is called when the elp detection is activated.
-        this function called from the main
-        It detects the elp from the image and publishes the result.
-        It will publish to the /vision/elp/result topic
-        with msg type DResult
-        """
-        MORPH_SIZE = 3
         img = self.down_img
         Fwidth = img.shape[1]
         Fheight = img.shape[0]
         FWcenter = Fwidth // 2
         FHcenter = Fheight // 2
         hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-        mask = cv.inRange(hsv, self.elp_lower_hsv, self.elp_upper_hsv)
+        mask = cv.inRange(hsv, self.target_lower_hsv, self.target_upper_hsv)
 
         # FILTER
-        # element = cv.getStructuringElement(cv.MORPH_RECT, (3, 3))
-        # mask_dilate = cv.dilate(mask, element, iterations=1)
+        # morph size for the filter
+        MORPH_SIZE = 3
+        # create kernel for filter
         element = cv.getStructuringElement(
             cv.MORPH_RECT, (2 * MORPH_SIZE, 2 * MORPH_SIZE), (MORPH_SIZE, MORPH_SIZE)
         )
+
+        # morphological transformation:
+        # https://www.youtube.com/watch?v=xSzsD4kXhRw
+        # apply filter morphology opening to the image
+        # erode and dilate to remove noise
         mask_opening = cv.morphologyEx(mask, cv.MORPH_OPEN, element, iterations=1)
+        # apply filter morphology closing to the image
+        # dilate and erode to fill holes
         mask_closing = cv.morphologyEx(
-            mask_opening, cv.MORPH_CLOSE, element, iterations=1
+            mask_opening, cv.MORPH_CLOSE, element, iterations=2
         )
+        # find contours in the masked and filtered image
         contours, hierarchy = cv.findContours(
             mask_closing, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
         )
 
+        # isolate object from background
         res = cv.bitwise_and(img, img, mask=mask_closing)
+
+        # find the biggest contour
         area_list = [None] * len(contours)
         contours_poly = [None] * len(contours)
         boundRect = [None] * len(contours)
-        centers = [None] * len(contours)
-        radius = [None] * len(contours)
         max_val = 0
         max_index = -1
+
         for i, c in enumerate(contours):
+            # calculate area of the contours
             area_list[i] = cv.contourArea(c)
             if area_list[i] > max_val:
+                # save max area and index
                 max_val = area_list[i]
                 max_index = i
-            contours_poly[i] = cv.approxPolyDP(c, 3, True)
-            boundRect[i] = cv.boundingRect(contours_poly[i])
-            centers[i], radius[i] = cv.minEnclosingCircle(contours_poly[i])
+                contours_poly = cv.approxPolyDP(c, 3, True)
+                boundRect = cv.boundingRect(contours_poly[i])
 
+        # if elp detected
         if max_index != -1:
-            x, y, w, h = boundRect[max_index]
+            x, y, w, h = boundRect
+            # calculate the difference between the center
+            # of the elp and the center of the image frame
             dx = int(w / 2 + x - FWcenter)
             dy = int(h / 2 + y - FHcenter)
+            # calculate the difference in meters, currently not working as expected
             x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
-            print("dx:", dx, "dy:", dy)
+            print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
             self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
         else:
+            # if no elp is detected, publish false
             self.elp_result_pub.publish(DResult(False, 0, 0, 0, 0))
+
         if self.show_image:
+            # copy image, so that the original image is not modified
             img_copy = img.copy()
+
             if len(contours) > 0:
                 for i in range(len(contours)):
                     color = (
@@ -447,23 +422,18 @@ class Vision:
                         rng.randint(0, 256),
                     )
                     cv.drawContours(img_copy, contours, i, (0, 0, 255), 2)
-                    cv.rectangle(
-                        img_copy,
-                        (int(boundRect[i][0]), int(boundRect[i][1])),
-                        (
-                            int(boundRect[i][0] + boundRect[i][2]),
-                            int(boundRect[i][1] + boundRect[i][3]),
-                        ),
-                        color,
-                        2,
-                    )
-                    cv.circle(
-                        img_copy,
-                        (int(centers[i][0]), int(centers[i][1])),
-                        int(radius[i]),
-                        color,
-                        2,
-                    )
+                # draw bounding box around the biggest contour
+                cv.rectangle(
+                    img_copy,
+                    (int(boundRect[0]), int(boundRect[1])),
+                    (
+                        int(boundRect[0] + boundRect[2]),
+                        int(boundRect[1] + boundRect[3]),
+                    ),
+                    color,
+                    2,
+                )
+                # draw line from center of image to center of contour
                 cv.line(
                     img_copy,
                     (FWcenter, FHcenter),
@@ -489,7 +459,153 @@ class Vision:
                     (0, 100, 255),
                     1,
                 )
+            # draw horizontal line
+            cv.line(
+                img_copy,
+                (0, FHcenter),
+                (Fwidth, FHcenter),
+                (0, 255, 0),
+                2,
+            )
+            cv.line(
+                img_copy,
+                (FWcenter, 0),
+                (FWcenter, Fheight),
+                (0, 255, 0),
+                2,
+            )
 
+            # cv.rectangle(res, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv.imshow("img_copy", img_copy)
+            # cv.imshow("obj", res)
+            # cv.imshow("hsv", hsv)
+            # cv.imshow("mask", mask)
+            cv.waitKey(1)
+
+    def detect_elp(self):
+        """
+        This function is called when the elp detection is activated.
+        this function called from the main
+        It detects the elp from the image and publishes the result.
+        It will publish to the /vision/elp/result topic
+        with msg type DResult
+        """
+        img = self.down_img
+        Fwidth = img.shape[1]
+        Fheight = img.shape[0]
+        FWcenter = Fwidth // 2
+        FHcenter = Fheight // 2
+        hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+        mask = cv.inRange(hsv, self.elp_lower_hsv, self.elp_upper_hsv)
+
+        # FILTER
+        # morph size for the filter
+        MORPH_SIZE = 3
+        # create kernel for filter
+        element = cv.getStructuringElement(
+            cv.MORPH_RECT, (2 * MORPH_SIZE, 2 * MORPH_SIZE), (MORPH_SIZE, MORPH_SIZE)
+        )
+
+        # morphological transformation:
+        # https://www.youtube.com/watch?v=xSzsD4kXhRw
+        # apply filter morphology opening to the image
+        # erode and dilate to remove noise
+        mask_opening = cv.morphologyEx(mask, cv.MORPH_OPEN, element, iterations=1)
+        # apply filter morphology closing to the image
+        # dilate and erode to fill holes
+        mask_closing = cv.morphologyEx(
+            mask_opening, cv.MORPH_CLOSE, element, iterations=2
+        )
+        # find contours in the masked and filtered image
+        contours, hierarchy = cv.findContours(
+            mask_closing, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
+        )
+
+        # isolate object from background
+        res = cv.bitwise_and(img, img, mask=mask_closing)
+
+        # find the biggest contour
+        area_list = [None] * len(contours)
+        contours_poly = [None] * len(contours)
+        boundRect = [None] * len(contours)
+        max_val = 0
+        max_index = -1
+
+        for i, c in enumerate(contours):
+            # calculate area of the contours
+            area_list[i] = cv.contourArea(c)
+            if area_list[i] > max_val:
+                # save max area and index
+                max_val = area_list[i]
+                max_index = i
+                contours_poly = cv.approxPolyDP(c, 3, True)
+                boundRect = cv.boundingRect(contours_poly[i])
+
+        # if elp detected
+        if max_index != -1:
+            x, y, w, h = boundRect
+            # calculate the difference between the center
+            # of the elp and the center of the image frame
+            dx = int(w / 2 + x - FWcenter)
+            dy = int(h / 2 + y - FHcenter)
+            # calculate the difference in meters, currently not working as expected
+            x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
+            print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
+            self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
+        else:
+            # if no elp is detected, publish false
+            self.elp_result_pub.publish(DResult(False, 0, 0, 0, 0))
+
+        if self.show_image:
+            # copy image, so that the original image is not modified
+            img_copy = img.copy()
+
+            if len(contours) > 0:
+                for i in range(len(contours)):
+                    color = (
+                        rng.randint(0, 256),
+                        rng.randint(0, 256),
+                        rng.randint(0, 256),
+                    )
+                    cv.drawContours(img_copy, contours, i, (0, 0, 255), 2)
+                # draw bounding box around the biggest contour
+                cv.rectangle(
+                    img_copy,
+                    (int(boundRect[0]), int(boundRect[1])),
+                    (
+                        int(boundRect[0] + boundRect[2]),
+                        int(boundRect[1] + boundRect[3]),
+                    ),
+                    color,
+                    2,
+                )
+                # draw line from center of image to center of contour
+                cv.line(
+                    img_copy,
+                    (FWcenter, FHcenter),
+                    (FWcenter + dx, FHcenter + dy),
+                    color,
+                    3,
+                )
+                cv.putText(
+                    img_copy,
+                    "dx:" + str(dx),
+                    (FWcenter + dx // 2, FHcenter + 10),
+                    cv.FONT_HERSHEY_PLAIN,
+                    1,
+                    (0, 100, 255),
+                    1,
+                )
+                cv.putText(
+                    img_copy,
+                    "dy:" + str(dy),
+                    (FWcenter - 10, FHcenter + dy // 2),
+                    cv.FONT_HERSHEY_PLAIN,
+                    1,
+                    (0, 100, 255),
+                    1,
+                )
+            # draw horizontal line
             cv.line(
                 img_copy,
                 (0, FHcenter),
@@ -516,6 +632,7 @@ class Vision:
         """
         this function is used to calculate the position in meter we should move
         based on error in pixel, lidar, and the fov of the camera
+        https://jamboard.google.com/d/1lls6bwxasvXhjlHUzlAPdn7H457EWCQQhZ9MEsxx3u0
         """
         if Front:
             if self.lidar_range == -1:
@@ -527,8 +644,8 @@ class Vision:
                 return 0, 0
             Rx = tan(radians(self.down_fov["x"] / 2)) * self.alt
             Ry = tan(radians(self.down_fov["y"] / 2)) * self.alt
-        x = dx * Rx / Fw
-        y = dy * Ry / Fh
+        x = dx * Rx / (Fw / 2)
+        y = dy * Ry / (Fh / 2)
         return float(x), float(y)
 
     def main(self):
