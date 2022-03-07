@@ -16,23 +16,28 @@ class Game:
             "/vision/elp/result", DResult, self.elp_callback
         )
         self.elp_data = DResult()
+        self.qr_data = QRResult()
         self.elp_data.is_found = False
 
         waypoints = [
-            {"x": -4.8, "y": 5, "z": 2},
-            {"x": -2.5, "y": 4, "z": 2},
+            {"x": -5, "y": 5.5, "z": 2},  # QR gedung 2m
+            {"x": -5, "y": 7, "z": 2.6},  # target gedung 2m
+            {"x": 2.3, "y": 7, "z": 1.5},  # QR gedung 1.5m
+            {"x": 2.3, "y": 8.3, "z": 2.3},  # target gedung 1.5m
+            {"x": -1.5, "y": 8.95, "z": 1.6},  # target gedung 1m
+            {"x": -2.5, "y": 4, "z": 2},  # elp
         ]
+
         self.drone = DroneAPI(waypoints=waypoints)
 
     def qr_callback(self, data):
-        print(type(data.data))
-        print("data : {} dx : {} dy : {} ".format(data.data, data.dx, data.dy))
+        self.qr_data = data
 
     def elp_callback(self, data):
-        print("dx : {} dy : {} ".format(data.dx, data.dy))
+        # print("dx : {} dy : {} ".format(data.dx, data.dy))
         self.elp_data = data
 
-    def land_algorithm(self, cur_pose):
+    def land_algorithm(self):
         now = rospy.Time.now()
         x_done = False
         y_done = False
@@ -44,19 +49,19 @@ class Game:
                 "z": self.drone.current_pose.pose.pose.position.z,
             }
 
-            if self.elp_data.dx > 10:
+            if self.elp_data.dx > 20:
                 print("move right")
                 cur_pose["x"] += 0.2
-            elif self.elp_data.dx < -10:
+            elif self.elp_data.dx < -20:
                 print("move left")
                 cur_pose["x"] -= 0.2
             else:
                 x_done = True
-            if self.elp_data.dy > 10:
+            if self.elp_data.dy > 20:
                 print("move backward")
                 cur_pose["y"] -= 0.2
 
-            elif self.elp_data.dy < -10:
+            elif self.elp_data.dy < -20:
                 print("move forward")
                 cur_pose["y"] += 0.2
             else:
@@ -114,14 +119,14 @@ class Game:
                             }
                             # landing elp
                             self.activate_elp(ActivateRequest(True))
-                            self.land_algorithm(cur_pose)
+                            self.land_algorithm()
                             land = True
                         try:
                             self.drone.next()
                         except IndexError:
                             break
                     elif land:
-                        self.land_algorithm(cur_pose)
+                        self.land_algorithm()
                     else:
                         self.drone.move()
                 except KeyboardInterrupt:
@@ -136,33 +141,104 @@ class Game:
     def main2(self):
 
         r = rospy.Rate(50)
-        # Create API object
-        # waypoints = [
-        #     {"x": -4.8, "y": 5, "z": 2},
-        #     {"x": -2, "y": 4, "z": 2},
-        # ]
+        qr = ["", ""]
         while not rospy.is_shutdown():
             wpt_objective = ["read qr", "landing elp"]
 
             # self.drone = DroneAPI(waypoints=waypoints)
             self.drone.wait4start()
             self.drone.takeoff(2)
-            self.drone.next()
             try:
                 self.drone.move()
 
                 while not self.drone.check_waypoint_reached():
                     self.drone.move()
-                    rospy.sleep(0.1)
+                    r.sleep()
+                self.activate_qr(ActivateRequest(True))
+                rospy.sleep(1)
+
+                while not self.qr_data.is_active:
+                    pass
+
+                else:
+                    qr[0] = self.qr_data.data
+                    print("qr : ", qr[0])
+                    self.activate_qr(ActivateRequest(False))
+                    rospy.sleep(1)
+
+                if qr[0] == "VTOL 1":
+                    rospy.loginfo("[MISSION] VTOL 1 detected, drop red box")
+                elif qr[0] == "VTOL 2":
+                    rospy.loginfo("[MISSION] VTOL 2 detected, drop green box")
+                elif qr[0] == "VTOL 3":
+                    rospy.loginfo("[MISSION] VTOL 3 detected, drop blue box")
+
+                self.drone.next()
+                self.drone.move()
+                while not self.drone.check_waypoint_reached():
+                    self.drone.move()
+                    r.sleep()
+
+                rospy.loginfo("[MISSION] Dropping box")
+                sleep(5)
+
+                self.drone.next()
+                self.drone.move()
+                while not self.drone.check_waypoint_reached():
+                    self.drone.move()
+                    r.sleep()
+
+                self.activate_qr(ActivateRequest(True))
+                rospy.sleep(1)
+                while not self.qr_data.is_active:
+                    pass
+                else:
+                    qr[1] = self.qr_data.data
+                    self.activate_qr(ActivateRequest(False))
+                    rospy.sleep(1)
+
+                print("qr : ", qr[1])
+                if qr[1] == "VTOL 1":
+                    rospy.loginfo("[MISSION] VTOL 1 detected, drop red box")
+                elif qr[1] == "VTOL 2":
+                    rospy.loginfo("[MISSION] VTOL 2 detected, drop green box")
+                elif qr[1] == "VTOL 3":
+                    rospy.loginfo("[MISSION] VTOL 3 detected, drop blue box")
+
+                self.drone.next()
+                self.drone.move()
+
+                while not self.drone.check_waypoint_reached():
+                    self.drone.move()
+                    r.sleep()
+                rospy.loginfo("[MISSION] Dropping box")
+                sleep(5)
+
+                self.drone.next()
+                self.drone.move()
+
+                while not self.drone.check_waypoint_reached():
+                    self.drone.move()
+                    r.sleep()
+
+                if "VTOL 1" not in qr:
+                    rospy.loginfo("[MISSION] dropping red box")
+                elif "VTOL 2" not in qr:
+                    rospy.loginfo("[MISSION] dropping green box")
+                elif "VTOL 3" not in qr:
+                    rospy.loginfo("[MISSION] dropping blue box")
+
+                self.drone.next()
+                self.drone.move()
+
+                while not self.drone.check_waypoint_reached():
+                    self.drone.move()
+                    r.sleep()
+
                 # landing elp
                 self.activate_elp(ActivateRequest(True))
-                cur_pose = {
-                    "x": self.drone.current_pose.pose.pose.position.x,
-                    "y": self.drone.current_pose.pose.pose.position.y,
-                    "z": self.drone.current_pose.pose.pose.position.z,
-                }
                 rospy.sleep(1)
-                while self.land_algorithm(cur_pose):
+                while self.land_algorithm():
                     pass
 
             except KeyboardInterrupt:
