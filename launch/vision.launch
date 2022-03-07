@@ -20,6 +20,7 @@
             front_fov_y: 78
             down_fov_x: 78
             down_fov_y: 78
+            use_hough_circle: True
         </rosparam>
     </node>
 

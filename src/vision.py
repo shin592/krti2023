@@ -64,6 +64,8 @@ class Vision:
 
     lidar_range = -1
     alt = -99
+    max_val = 0
+    max_index = -1
 
     def __init__(self):
         # initialize node
@@ -133,6 +135,15 @@ class Vision:
             "/vision/verbose", Activate, self.activate_verbose
         )
         self.lidar_sub = rospy.Subscriber(self.lidar_topic, LaserScan, self.lidar_cb)
+
+        # testing
+        # cv.namedWindow("img")
+        # cv.createTrackbar("param1", "img", 0, 255, self.nothing)
+        # cv.createTrackbar("param2", "img", 0, 255, self.nothing)
+        # cv.createTrackbar("min_dist", "img", 0, 800, self.nothing)
+        # cv.createTrackbar("min_radius", "img", 0, 800, self.nothing)
+        # cv.createTrackbar("max_radius", "img", 0, 800, self.nothing)
+        # cv.createTrackbar("dp", "img", 1, 3, self.nothing)
 
         # to activate verbose mode
 
@@ -441,6 +452,8 @@ class Vision:
                     color,
                     3,
                 )
+                cv.circle(img_copy, (FWcenter + dx, FHcenter), 3, (0, 255, 255), -1)
+                cv.circle(img_copy, (FWcenter, FWcenter + dy), 3, (0, 255, 255), -1)
                 cv.putText(
                     img_copy,
                     "dx:" + str(dx),
@@ -482,7 +495,7 @@ class Vision:
             # cv.imshow("mask", mask)
             cv.waitKey(1)
 
-    def detect_elp(self):
+    def detect_elp(self, hough_circle):
         """
         This function is called when the elp detection is activated.
         this function called from the main
@@ -491,6 +504,7 @@ class Vision:
         with msg type DResult
         """
         img = self.down_img
+        img_copy = img.copy()
         Fwidth = img.shape[1]
         Fheight = img.shape[0]
         FWcenter = Fwidth // 2
@@ -516,69 +530,98 @@ class Vision:
         mask_closing = cv.morphologyEx(
             mask_opening, cv.MORPH_CLOSE, element, iterations=2
         )
-        # find contours in the masked and filtered image
-        contours, hierarchy = cv.findContours(
-            mask_closing, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
-        )
-
-        # isolate object from background
-        res = cv.bitwise_and(img, img, mask=mask_closing)
-
-        # find the biggest contour
-        area_list = [None] * len(contours)
-        contours_poly = [None] * len(contours)
-        boundRect = [None] * len(contours)
-        max_val = 0
-        max_index = -1
-
-        for i, c in enumerate(contours):
-            # calculate area of the contours
-            area_list[i] = cv.contourArea(c)
-            if area_list[i] > max_val:
-                # save max area and index
-                max_val = area_list[i]
-                max_index = i
-                contours_poly = cv.approxPolyDP(c, 3, True)
-                boundRect = cv.boundingRect(contours_poly[i])
-
-        # if elp detected
-        if max_index != -1:
-            x, y, w, h = boundRect
-            # calculate the difference between the center
-            # of the elp and the center of the image frame
-            dx = int(w / 2 + x - FWcenter)
-            dy = int(h / 2 + y - FHcenter)
-            # calculate the difference in meters, currently not working as expected
-            x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
-            print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
-            self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
-        else:
-            # if no elp is detected, publish false
-            self.elp_result_pub.publish(DResult(False, 0, 0, 0, 0))
-
-        if self.show_image:
-            # copy image, so that the original image is not modified
-            img_copy = img.copy()
-
-            if len(contours) > 0:
-                for i in range(len(contours)):
+        if hough_circle and self.alt > 1:
+            contours = []
+            circles = cv.HoughCircles(
+                mask_closing,
+                cv.HOUGH_GRADIENT,
+                1.8,
+                minDist=Fwidth * 2 / 3,
+                param1=150,
+                param2=44,
+                minRadius=20,
+                maxRadius=0,
+            )
+            if circles is not None:
+                rospy.loginfo("cirlce found")
+                circles = np.uint16(np.around(circles))
+                for i in circles[0, :]:
                     color = (
                         rng.randint(0, 256),
                         rng.randint(0, 256),
                         rng.randint(0, 256),
                     )
-                    cv.drawContours(img_copy, contours, i, (0, 0, 255), 2)
-                # draw bounding box around the biggest contour
-                cv.rectangle(
-                    img_copy,
-                    (int(boundRect[0]), int(boundRect[1])),
-                    (
-                        int(boundRect[0] + boundRect[2]),
-                        int(boundRect[1] + boundRect[3]),
-                    ),
-                    color,
-                    2,
+                    center = (i[0], i[1])
+                    radius = i[2]
+                    cv.circle(img_copy, center, radius, color, 3)
+                    dx = i[0] - FWcenter
+                    dy = i[1] - FHcenter
+                    x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
+                    print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
+                    self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
+            self.elp_result_pub.publish(DResult(False, 0, 0, 0, 0))
+
+        else:
+            # find contours in the masked and filtered image
+            contours, hierarchy = cv.findContours(
+                mask_closing, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
+            )
+            # isolate object from background
+            res = cv.bitwise_and(img, img, mask=mask_closing)
+
+            # find the biggest contour
+            area_list = [None] * len(contours)
+            contours_poly = [None] * len(contours)
+            for i, c in enumerate(contours):
+                # calculate area of the contours
+                area_list[i] = cv.contourArea(c)
+                print(f"c: {c} area : {area_list[i]} ")
+                if area_list[i] >= self.max_val:
+                    # save max area and index
+                    self.max_val = area_list[i]
+                    self.max_index = i
+                contours_poly[i] = cv.approxPolyDP(c, 3, True)
+
+            # if elp detected
+            if self.max_index != -1:
+                x, y, w, h = cv.boundingRect(contours_poly[self.max_index])
+                # calculate the difference between the center
+                # of the elp and the center of the image frame
+                dx = int(w / 2 + x - FWcenter)
+                dy = int(h / 2 + y - FHcenter)
+                # calculate the difference in meters, currently not working as expected
+                x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
+                print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
+                self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
+            else:
+                dx = 0
+                dy = 0
+                # if no elp is detected, publish false
+                self.elp_result_pub.publish(DResult(False, 0, 0, 0, 0))
+
+        if self.show_image:
+            # copy image, so that the original image is not modified
+
+            if len(contours) > 0 or circles is not None:
+                # for i in range(len(contours)):
+                color = (
+                    rng.randint(0, 256),
+                    rng.randint(0, 256),
+                    rng.randint(0, 256),
                 )
+                # draw bounding box around the biggest contour
+                if not hough_circle:
+                    cv.drawContours(img_copy, contours_poly, self.max_index, color, 3)
+                    cv.rectangle(
+                        img_copy,
+                        (int(x), int(y)),
+                        (
+                            int(x + w),
+                            int(y + h),
+                        ),
+                        color,
+                        2,
+                    )
                 # draw line from center of image to center of contour
                 cv.line(
                     img_copy,
@@ -587,6 +630,7 @@ class Vision:
                     color,
                     3,
                 )
+                cv.circle(img_copy, (FWcenter + dx, FHcenter + dy), 5, color, -1)
                 cv.putText(
                     img_copy,
                     "dx:" + str(dx),
@@ -621,11 +665,11 @@ class Vision:
                 2,
             )
 
-            # cv.rectangle(res, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv.imshow("img_copy", img_copy)
-            # cv.imshow("obj", res)
+            # if not hough_circle:
+            #     cv.imshow("obj", res)
+            cv.imshow("img", img_copy)
             # cv.imshow("hsv", hsv)
-            # cv.imshow("mask", mask)
+            cv.imshow("mask", mask_closing)
             cv.waitKey(1)
 
     def calculate_meter_from_pixel(self, dx, dy, Fw, Fh, Front=True):
@@ -650,6 +694,8 @@ class Vision:
 
     def main(self):
         last = rospy.Time.now()
+        r = rospy.Rate(10)
+        use_hough_circle = rospy.get_param("~use_hough_circle", False)
         while not rospy.is_shutdown():
             if rospy.Time.now() - last > rospy.Duration(5):
                 rospy.loginfo("[Vision] Heartbeat every 5 seconds")
@@ -662,7 +708,7 @@ class Vision:
                 pass
             if self.elp:
                 if self.down_img.all() != None:
-                    self.detect_elp()
+                    self.detect_elp(hough_circle=use_hough_circle)
             else:
                 pass
             if self.target:
@@ -670,7 +716,7 @@ class Vision:
                     self.detect_target()
             else:
                 pass
-            rospy.sleep(0.1)
+            r.sleep()
 
 
 if __name__ == "__main__":
