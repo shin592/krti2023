@@ -136,16 +136,20 @@ class Vision:
         )
         self.lidar_sub = rospy.Subscriber(self.lidar_topic, LaserScan, self.lidar_cb)
 
-        # testing
-        # cv.namedWindow("img")
-        # cv.createTrackbar("param1", "img", 0, 255, self.nothing)
-        # cv.createTrackbar("param2", "img", 0, 255, self.nothing)
-        # cv.createTrackbar("min_dist", "img", 0, 800, self.nothing)
-        # cv.createTrackbar("min_radius", "img", 0, 800, self.nothing)
-        # cv.createTrackbar("max_radius", "img", 0, 800, self.nothing)
-        # cv.createTrackbar("dp", "img", 1, 3, self.nothing)
+        # PUBLISHER
+        # create publisher for returnin the QR detection and reading result
+        self.qr_result_pub = rospy.Publisher(
+            "vision/qr/result", QRResult, queue_size=10
+        )
+        # create publisher for elp detection
+        self.elp_result_pub = rospy.Publisher(
+            "/vision/elp/result", DResult, queue_size=10
+        )
 
-        # to activate verbose mode
+        # create publisher for target detection
+        self.target_result_pub = rospy.Publisher(
+            "/vision/target/result", DResult, queue_size=10
+        )
 
     def activate_verbose(self, req):
         """
@@ -169,22 +173,16 @@ class Vision:
                 self.img_sub = rospy.Subscriber(
                     self.front_image_topic, Image, self.callback, callback_args="front"
                 )
-
                 if VERBOSE:
                     print("Subscribed to {}".format(self.front_image_topic))
             else:
                 # if using real robot
                 self.front_img = self.front_cam.read()
 
-            # create publisher for returnin the QR detection and reading result
-            self.qr_result_pub = rospy.Publisher(
-                "vision/qr/result", QRResult, queue_size=10
-            )
             self.qr = True
         else:
             # to unpublish the publisher from ros topic
             self.img_sub.unregister()
-            self.qr_result_pub.unregister()
             self.qr = False
             if self.show_image:
                 cv.destroyAllWindows()
@@ -211,15 +209,11 @@ class Vision:
             # if using real robot
             else:
                 self.down_img = self.down_cam.read()
-            # create publisher for QRResult
-            self.elp_result_pub = rospy.Publisher(
-                "/vision/elp/result", DResult, queue_size=10
-            )
+
             self.elp = True
 
         else:
             self.img_sub2.unregister()
-            self.elp_result_pub.unregister()
             self.elp = False
             if self.show_image:
                 cv.destroyAllWindows()
@@ -243,15 +237,11 @@ class Vision:
             # if using real robot
             else:
                 self.front_img = self.front_cam.read()
-            # create publisher for QRResult
-            self.target_result_pub = rospy.Publisher(
-                "/vision/target/result", DResult, queue_size=10
-            )
+
             self.target = True
 
         else:
             self.img_sub3.unregister()
-            self.target_result_pub.unregister()
             self.target = False
             if self.show_image:
                 cv.destroyAllWindows()
@@ -326,16 +316,28 @@ class Vision:
             # get the difference in meters, currently not working as expected
             x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
             # publish the result
-            self.qr_result_pub.publish(
-                QRResult(
-                    True,
-                    dx,
-                    dy,
-                    x_m,
-                    y_m,
-                    self.decoded_text,
+            if self.decoded_text is not None and self.decoded_text != "":
+                self.qr_result_pub.publish(
+                    QRResult(
+                        True,
+                        dx,
+                        dy,
+                        x_m,
+                        y_m,
+                        self.decoded_text,
+                    )
                 )
-            )
+            else:
+                self.qr_result_pub.publish(
+                    QRResult(
+                        False,
+                        dx,
+                        dy,
+                        x_m,
+                        y_m,
+                        self.decoded_text,
+                    )
+                )
             if VERBOSE:
                 print("QR Code detected: {}".format(self.decoded_text))
                 print("points: x:{} y:{} w:{} h:{}".format(x, y, w, h))
@@ -557,7 +559,7 @@ class Vision:
                     dx = i[0] - FWcenter
                     dy = i[1] - FHcenter
                     x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
-                    print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
+                    # print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
                     self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
             self.elp_result_pub.publish(DResult(False, 0, 0, 0, 0))
 
@@ -575,7 +577,7 @@ class Vision:
             for i, c in enumerate(contours):
                 # calculate area of the contours
                 area_list[i] = cv.contourArea(c)
-                print(f"c: {c} area : {area_list[i]} ")
+                # print(f"c: {c} area : {area_list[i]} ")
                 if area_list[i] >= self.max_val:
                     # save max area and index
                     self.max_val = area_list[i]
@@ -591,7 +593,7 @@ class Vision:
                 dy = int(h / 2 + y - FHcenter)
                 # calculate the difference in meters, currently not working as expected
                 x_m, y_m = self.calculate_meter_from_pixel(dx, dy, Fwidth, Fheight)
-                print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
+                # print("dx:", dx, "dy:", dy, "x_m:", x_m, "y_m:", y_m)
                 self.elp_result_pub.publish(DResult(True, dx, dy, x_m, y_m))
             else:
                 dx = 0
@@ -694,7 +696,7 @@ class Vision:
 
     def main(self):
         last = rospy.Time.now()
-        r = rospy.Rate(10)
+        r = rospy.Rate(50)
         use_hough_circle = rospy.get_param("~use_hough_circle", False)
         while not rospy.is_shutdown():
             if rospy.Time.now() - last > rospy.Duration(5):

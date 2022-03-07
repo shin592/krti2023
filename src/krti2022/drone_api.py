@@ -357,8 +357,8 @@ class DroneAPI:
         dy = abs(destination["y"] - self.current_pose.pose.pose.position.y)
         dz = abs(destination["z"] - self.current_pose.pose.pose.position.z)
 
-        print(self.current_pose.pose.pose.position.z)
-        print(dx, dy, dz)
+        # print(self.current_pose.pose.pose.position.z)
+        # print(dx, dy, dz)
 
         dMag = sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2))
 
