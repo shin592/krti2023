@@ -3,7 +3,9 @@
 	<!-- Experimental launch script for APM based Drone -->
 
 	<!-- Start mavros -->
+	<arg name="use_sim" default="true"/>
 	<include file="$(find krti2022)/launch/mavros_only.launch"/>
+	<rosparam param="use_sim" subst_value="true">$(arg use_sim)</rosparam>
 	
 	<!-- Start gazebo -->
 	<arg name="pola" default="1"/>

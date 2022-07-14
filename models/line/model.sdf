@@ -1,0 +1,46 @@
+<?xml version='1.0'?>
+<sdf version='1.7'>
+  <model name='line'>
+    <link name='link_0'>
+      <inertial>
+        <mass>1</mass>
+        <inertia>
+          <ixx>0.166667</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.166667</iyy>
+          <iyz>0</iyz>
+          <izz>0.166667</izz>
+        </inertia>
+        <pose>0 0 0 0 -0 0</pose>
+      </inertial>
+      <pose>0 0 0 0 -0 0</pose>
+      <gravity>1</gravity>
+      <visual name='visual'>
+        <pose>0 0 0 0 -0 0</pose>
+        <material>
+          <lighting>1</lighting>
+        </material>
+        <geometry>
+          <mesh>
+            <uri>model://line/meshes/line.dae</uri>
+          </mesh>
+        </geometry>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+      </visual>
+      <collision name='collision'>
+        <laser_retro>0</laser_retro>
+        <max_contacts>10</max_contacts>
+        <pose>0 0 0 0 -0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://line/meshes/line.dae</uri>
+          </mesh>
+        </geometry>
+      </collision>
+    </link>
+    <static>1</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>

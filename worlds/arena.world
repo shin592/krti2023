@@ -61,7 +61,7 @@
           <lighting>1</lighting>
           <script>
             <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Grey</name>
+            <name>Gazebo/asphalt</name>
           </script>
         </material>
         </visual>
@@ -126,6 +126,22 @@
           <script>
             <uri>file://media/materials/scripts/gazebo.material</uri>
             <name>Gazebo/Black</name>
+          </script>
+        </material>
+        </visual>
+
+        <visual name='visual6'>
+          <pose>0 0 0 0 -0 0</pose>
+          <geometry>
+            <box>
+              <size>1 1 0.01</size>
+            </box>
+          </geometry>
+          <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/White</name>
           </script>
         </material>
         </visual>
@@ -207,14 +223,6 @@
       <static>1</static>
     </model>
 
-    <model name="home">
-      <include>
-        <uri>model://home</uri>
-      </include>
-      <pose>0 0 0.0025 0 -0 0</pose>
-      <static>1</static>
-    </model>
-
     <model name="elp">
       <include>
         <uri>model://elp</uri>
@@ -228,7 +236,7 @@
       <include>
         <uri>model://drone</uri>
       </include>
-      <pose> 0 0 0 0 0 0</pose>
+      <pose> 0 0 0.3 0 0 0</pose>
     </model>
 
   </world>

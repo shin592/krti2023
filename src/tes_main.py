@@ -20,10 +20,10 @@ class Game:
         self.elp_data.is_found = False
 
         waypoints = [
-            {"x": -5, "y": 5.5, "z": 2},  # QR gedung 2m
-            {"x": -5, "y": 7, "z": 2.6},  # target gedung 2m
-            {"x": 2.3, "y": 7, "z": 1.5},  # QR gedung 1.5m
-            {"x": 2.3, "y": 8.3, "z": 2.3},  # target gedung 1.5m
+            {"x": -4, "y": 6.5, "z": 2},  # QR gedung 2m
+            {"x": -4, "y": 6, "z": 2.6},  # target gedung 2m
+            {"x": 3.6, "y": 7, "z": 1.5},  # QR gedungAkasasura/iq_gnc 1.5m
+            {"x": 3.6, "y": 7, "z": 2.3},  # target gedung 1.5m
             {"x": -1.5, "y": 8.95, "z": 1.6},  # target gedung 1m
             {"x": -2.5, "y": 4, "z": 2},  # elp
         ]
@@ -156,8 +156,11 @@ class Game:
                     r.sleep()
                 self.activate_qr(ActivateRequest(True))
                 rospy.sleep(1)
-
-                while not self.qr_data.is_active:
+                now = rospy.Time.now()
+                while (
+                    not self.qr_data.is_active
+                    or rospy.Time.now() - now > rospy.Duration(5)
+                ):
                     pass
 
                 else:
@@ -187,10 +190,14 @@ class Game:
                 while not self.drone.check_waypoint_reached():
                     self.drone.move()
                     r.sleep()
-
+                # sleep(10)
                 self.activate_qr(ActivateRequest(True))
                 rospy.sleep(1)
-                while not self.qr_data.is_active:
+                now = rospy.Time.now()
+                while (
+                    not self.qr_data.is_active
+                    or rospy.Time.now() - now > rospy.Duration(5)
+                ):
                     pass
                 else:
                     qr[1] = self.qr_data.data
@@ -212,7 +219,7 @@ class Game:
                     self.drone.move()
                     r.sleep()
                 rospy.loginfo("[MISSION] Dropping box")
-                sleep(5)
+                # sleep(50)
 
                 self.drone.next()
                 self.drone.move()

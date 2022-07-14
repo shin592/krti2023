@@ -73,9 +73,7 @@ class Vision:
 
         # get parameter from launch file
         VERBOSE = rospy.get_param("/vision/verbose")
-        self.sim = rospy.get_param("/vision/use_sim")
-        Fcamera_index = rospy.get_param("/vision/front_camera_index")
-        Dcamera_index = rospy.get_param("/vision/down_camera_index")
+        self.sim = rospy.get_param("/use_sim")
         self.elp_lower_hsv = np.array(rospy.get_param("/vision/elp_lower_hsv"))
         self.elp_upper_hsv = np.array(rospy.get_param("/vision/elp_upper_hsv"))
         self.target_lower_hsv = np.array(rospy.get_param("/vision/target_lower_hsv"))
@@ -91,8 +89,6 @@ class Vision:
         }
         if VERBOSE:
             print("use sim : {}".format(self.sim))
-            print("front camera index : {}".format(Fcamera_index))
-            print("down camera index : {}".format(Dcamera_index))
             print("elp lower hsv : {}".format(self.elp_lower_hsv))
             print("elp upper hsv : {}".format(self.elp_upper_hsv))
             print("target lower hsv : {}".format(self.target_lower_hsv))
@@ -101,24 +97,9 @@ class Vision:
             print("front fov : {}".format(self.front_fov))
             print("down fov : {}".format(self.down_fov))
 
-        # if using sim, so subscribe to the sim camera
-        if self.sim:
-            self.front_image_topic = "/front_facing_camera/image_raw"
-            self.down_image_topic = "/down_facing_camera/image_raw"
-            # this lidar topic needed for detecting target and converting d_pixel to position in m
-            self.lidar_topic = "/spur/laser/scan"
-        # if using real robot create object to get image from camera
-        else:
-            self.lidar_topic = "/sensors/lidar"  # get lidar data (strength and range)
-            # change the value to the appropriate camera indexes
-            self.front_cam = cv.VideoCapture(Fcamera_index)
-            self.down_cam = cv.VideoCapture(Dcamera_index)
-            self.front_cam.set(cv.CAP_PROP_FRAME_WIDTH, 360)
-            self.front_cam.set(cv.CAP_PROP_FRAME_HEIGHT, 360)
-            self.front_cam.set(cv.CAP_PROP_FPS, 30)
-            self.down_cam.set(cv.CAP_PROP_FRAME_WIDTH, 360)
-            self.down_cam.set(cv.CAP_PROP_FRAME_WIDTH, 360)
-            self.down_cam.set(cv.CAP_PROP_FPS, 30)
+        # subscribe to sensors/camera to get image
+        self.front_image_topic = "/sensors/front_camera"
+        self.down_image_topic = "/sensors/down_camera"
 
         self.timestamp = rospy.Time.now()
         # to start subscribing to the image_topic and starting the QR code detection
@@ -134,7 +115,9 @@ class Vision:
         self.verbose_srv = rospy.Service(
             "/vision/verbose", Activate, self.activate_verbose
         )
-        self.lidar_sub = rospy.Subscriber(self.lidar_topic, LaserScan, self.lidar_cb)
+        self.lidar_sub = rospy.Subscriber(
+            "/sensors/range_finder/front", LaserScan, self.lidar_cb
+        )
 
         # PUBLISHER
         # create publisher for returnin the QR detection and reading result
@@ -167,25 +150,23 @@ class Vision:
         """
         rospy.loginfo("QR code detect activated")
         if data.data:
-            # if using sim, so subscribe to the sim camera
-            if self.sim:
-                # subscribe to image_topic from front SIM camera
-                self.img_sub = rospy.Subscriber(
-                    self.front_image_topic, Image, self.callback, callback_args="front"
-                )
-                if VERBOSE:
-                    print("Subscribed to {}".format(self.front_image_topic))
-            else:
-                # if using real robot
-                self.front_img = self.front_cam.read()
+            # if so subscribe to the camera
+
+            self.img_sub = rospy.Subscriber(
+                self.front_image_topic, Image, self.callback, callback_args="front"
+            )
+            if VERBOSE:
+                print("Subscribed to {}".format(self.front_image_topic))
 
             self.qr = True
+
         else:
             # to unpublish the publisher from ros topic
             self.img_sub.unregister()
             self.qr = False
             if self.show_image:
                 cv.destroyAllWindows()
+
         return ActivateResponse(True)
 
     def activate_elp(self, data):
@@ -195,20 +176,15 @@ class Vision:
         """
         rospy.loginfo("ELP detect activated")
         if data.data:
-            # if using sim, so subscribe to the sim camera
-            if self.sim:
-                # subscribe to image_topic from SIM camera
-                self.img_sub2 = rospy.Subscriber(
-                    self.down_image_topic, Image, self.callback, callback_args="down"
-                )
-                self.pose_sub = rospy.Subscriber(
-                    "/mavros/local_position/odom", Odometry, self.pose_cb
-                )
-                if VERBOSE:
-                    print("Subscribed to {}".format(self.down_image_topic))
-            # if using real robot
-            else:
-                self.down_img = self.down_cam.read()
+            # subscribe to image_topic from sensors/camera
+            self.img_sub2 = rospy.Subscriber(
+                self.down_image_topic, Image, self.callback, callback_args="down"
+            )
+            self.pose_sub = rospy.Subscriber(
+                "/mavros/local_position/odom", Odometry, self.pose_cb
+            )
+            if VERBOSE:
+                print("Subscribed to {}".format(self.down_image_topic))
 
             self.elp = True
 
@@ -226,18 +202,14 @@ class Vision:
         """
         rospy.loginfo("Target detect activated")
         if data.data:
-            # if using sim, so subscribe to the sim camera
-            if self.sim:
-                # subscribe to image_topic from SIM camera
-                self.img_sub3 = rospy.Subscriber(
-                    self.front_image_topic, Image, self.callback, callback_args="front"
-                )
-                if VERBOSE:
-                    print("Subscribed to {}".format(self.front_image_topic))
-            # if using real robot
-            else:
-                self.front_img = self.front_cam.read()
 
+            # subscribe to image_topic from camera
+            self.img_sub3 = rospy.Subscriber(
+                self.front_image_topic, Image, self.callback, callback_args="front"
+            )
+            if VERBOSE:
+                print("Subscribed to {}".format(self.front_image_topic))
+            # if using real robot
             self.target = True
 
         else:

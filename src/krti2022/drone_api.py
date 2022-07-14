@@ -331,9 +331,9 @@ class DroneAPI:
         client.publish(request)
 
         # Print success message
-        # rospy.loginfo(
-        #     f"Moving to x: {destination['x']}; y: {destination['y']}; z: {destination['z']}"
-        # )
+        rospy.loginfo(
+            f"Moving to x: {destination['x']}; y: {destination['y']}; z: {destination['z']}"
+        )
 
     def next(self):
         """
@@ -386,6 +386,7 @@ class DroneAPI:
         """
         rospy.loginfo("Waiting for FCU connection")
         while not rospy.is_shutdown() and not self.current_state.connected:
+            print("connecting")
             rospy.sleep(0.01)
         else:
             if self.current_state.connected:
