@@ -27,6 +27,10 @@ Command number one and two provide two additional arguments:
 - pola -> how the QR code placed based on the draw
 - target -> where the object should be thrown in building B
 
+To launch it with customized `pola` and `target`: `roslaunch krti2022 launch_file_name.launch arg:=value`
+
+For example, `roslaunch krti2022 full.launch pola:=2 target:=2`
+
 To understand more, please review the [KRTI 2021 manual file](https://unairacid-my.sharepoint.com/personal/nara_atthama-2020_ftmm_drive_unair_ac_id/Documents/Akasasura/KRTI%202021/Panduan%20KRTI%202021.pdf) page 32 for `pola` and 28 for `target`.
 
 Note: `pola` means the pattern for which item to be dropped, while `target` means which point should the item be dropped at Tower B.
