@@ -1,4 +1,8 @@
 <launch>
+  <!-- Telling model path for Gazebo to find -->
+  <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find krti2022)/models"/>
+  <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find krti2022)/models"/>
+
   <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
   <arg name="gui" default="true"/>
   <include file="$(find gazebo_ros)/launch/empty_world.launch">

@@ -6,16 +6,6 @@ This is a catkin package built by VTOL team for KRTI 2022. Wish us luck.
 
 To clone the repository, make sure you already have created your own catkin workspace. If you already done that, clone this repository to your `src` folder inside the catkin workspace. Don't forget to run `catkin build` or `catkin_make` to build the package.
 
-### Telling Gazebo where to look for KRTI 2022 models 
-
-Run the following command:
-
-```bash
-echo "GAZEBO_MODEL_PATH=${GAZEBO_MODEL_PATH}:$HOME/catkin_ws/src/krti2022/models" >> ~/.bashrc
-```
-
-If you put the catkin workspace somewhere else, modify the `/catkin_ws/` to the appropriate path.
-
 ### Launching the world
 
 To start using this package, there are some launch file provided out of the box.
