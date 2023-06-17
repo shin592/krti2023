@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(krti2022)
+project(krti2023)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -175,7 +175,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   src/vision.py
   src/sensors.py
-  src/krti2022/drone_api.py
+  src/drone_api/drone_api.py
   src/tes_main.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

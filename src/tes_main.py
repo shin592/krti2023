@@ -1,6 +1,6 @@
-from krti2022.drone_api import DroneAPI
-from krti2022.msg import QRResult, DResult
-from krti2022.srv import Activate, ActivateRequest, ActivateResponse
+from drone_api.drone_api import DroneAPI
+from krti2023.msg import QRResult, DResult
+from krti2023.srv import Activate, ActivateRequest, ActivateResponse
 import rospy
 from time import sleep
 
