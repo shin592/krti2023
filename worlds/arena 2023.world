@@ -261,7 +261,13 @@
       <uri>model://sun</uri>
       <!-- <pose> 0 0 1000 0 0 0</pose> -->
     </include>
-
+    
+    <model name="object kiri">
+      <include>
+        <uri>model://object</uri>
+      </include>
+      <pose> 0 0 0 0 0 0</pose>
+    </model>
 
     <model name="wall">
       <include>
