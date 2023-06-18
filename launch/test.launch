@@ -1,0 +1,20 @@
+<launch>
+  <!-- Telling model path for Gazebo to find -->
+  <env name="GAZEBO_MODEL_PATH" value="${GAZEBO_MODEL_PATH}:$(find krti2023)/models"/>
+  <env name="GAZEBO_RESOURCE_PATH" value="${GAZEBO_RESOURCE_PATH}:$(find krti2023)/models"/>
+
+  <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
+  <arg name="gui" default="true"/>
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="verbose" default="true"/>
+    <arg name="world_name" value="$(find krti2023)/worlds/arena 2023.world"/>
+    <arg name="gui" value="$(arg gui)"/>
+    <!-- more default parameters can be changed here -->
+  </include>
+  <!-- <arg name="pola" default="2"/>
+  <arg name="target" default="3"/>
+  <include file="$(find krti2022)/launch/spawn_qr_target.launch">
+      <arg name="target" value="$(arg target)"/>
+      <arg name="pola" value="$(arg pola)"/>
+  </include> -->
+</launch>
