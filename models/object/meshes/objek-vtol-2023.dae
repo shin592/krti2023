@@ -84,8 +84,10 @@
               <color sid="emission">0 0 0 1</color>
             </emission>
             <diffuse>
-              <color sid="diffuse">0.8 0.8 0.8 1</color>
+              <color sid="diffuse">1 0.5 0 1</color>
             </diffuse>
+            <ambient>
+            <color sid="ambient">1 0.3 0 1</color></ambient>
             <index_of_refraction>
               <float sid="ior">1.45</float>
             </index_of_refraction>

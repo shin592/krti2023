@@ -52,7 +52,7 @@
         </collision>
 
         <visual name='visual'>
-          <pose>0 80 0.01 0 -0 1.5708</pose>
+          <pose>0 80 0.005 0 -0 1.5708</pose>
           <geometry>
             <plane>
               <size>1829 45</size>
@@ -74,7 +74,7 @@
 
 
         <visual name='visual2'>
-          <pose>  0 0 0 -0.5 0</pose>
+          <pose>  0 0 0 -0.8 0</pose>
           <cast_shadows>false</cast_shadows>
           <geometry>
             <plane>
@@ -113,6 +113,23 @@
             <box>
               <size>1.2 1.2 0</size>
             </box>
+          </geometry>
+          <material>
+          <lighting>1</lighting>
+          <ambient>255 255 255</ambient>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Grey</name>
+          </script>
+        </material>
+        </visual>
+
+        <visual name='Drop Square'>
+          <pose>  -4.4 -3.15 0.02 -0 0</pose>
+          <geometry>
+            <Square>
+              <size>1.2 1.2 0</size>
+            </Square>
           </geometry>
           <material>
           <lighting>1</lighting>
@@ -266,7 +283,28 @@
       <include>
         <uri>model://object</uri>
       </include>
-      <pose> 0 0 0 0 0 0</pose>
+      <pose> -1.5 -1 3 0 0 0</pose>
+    </model>
+
+    <model name="object kanan">
+      <include>
+        <uri>model://object</uri>
+      </include>
+      <pose> 1.5 -1 3 0 0 0</pose>
+    </model>
+
+    <model name="target kiri">
+      <include>
+        <uri>model://target</uri>
+      </include>
+      <pose> -6 2.5 0 0 0 0</pose>
+    </model>
+
+    <model name="target kanan">
+      <include>
+        <uri>model://target</uri>
+      </include>
+      <pose> 6 2.5 0 0 0 0</pose>
     </model>
 
     <model name="wall">
@@ -280,7 +318,7 @@
       <include>
         <uri>model://drone</uri>
       </include>
-      <pose> 0 0 0.3 0 0 0</pose>
+      <pose> -1.3 -3.15 0.1 0   -0 1.5708</pose>
     </model>
 
     <!-- <light name='user_directional_light' type='directional'>
